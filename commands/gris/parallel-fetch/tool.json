@@ -1,0 +1,4 @@
+{
+  "description": "複数URLを並列リクエストしてステータスと速度を表示",
+  "run": "node index.js"
+}
