@@ -1,0 +1,4 @@
+{
+  "description": "ランダムに猫の声を出す。たまに無言",
+  "run": "python main.py"
+}
