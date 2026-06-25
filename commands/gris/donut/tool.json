@@ -1,0 +1,1 @@
+{ "description": "3Dトーラスを透視投影+ASCIIシェーディングで回転させる", "run": "node index.js" }

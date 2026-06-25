@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>cli_lab</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      color: #c8c8d8;
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    h1 {
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      color: transparent;
+      background: linear-gradient(135deg, #c8c8d8 0%, #8888aa 50%, #e0e0f0 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    .subtitle {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: #505068;
+    }
+
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .nav-label {
+      font-size: 0.7rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #404058;
+      margin-bottom: 0.25rem;
+    }
+
+    a.card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.5rem;
+      border: 1px solid #1e1e2e;
+      border-radius: 6px;
+      text-decoration: none;
+      color: #a0a0c0;
+      background: #0e0e18;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    a.card:hover {
+      border-color: #4040608;
+      background: #13131f;
+      color: #d8d8ee;
+      border-color: #404060;
+    }
+
+    .card-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .card-icon { font-size: 1.1rem; }
+    .card-name { font-size: 0.95rem; letter-spacing: 0.05em; }
+    .card-arrow { font-size: 0.8rem; color: #404058; }
+
+    footer {
+      margin-top: 4rem;
+      font-size: 0.75rem;
+      color: #303048;
+      letter-spacing: 0.2em;
+    }
+
+    footer a {
+      color: #404060;
+      text-decoration: none;
+    }
+
+    footer a:hover { color: #8888aa; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>cli_lab</h1>
+    <p class="subtitle">a shared playground</p>
+  </header>
+
+  <nav>
+    <p class="nav-label">Pages</p>
+
+    <a class="card" href="pages/gris/">
+      <div class="card-left">
+        <span class="card-icon">🐱</span>
+        <span class="card-name">gris</span>
+      </div>
+      <span class="card-arrow">→</span>
+    </a>
+  </nav>
+
+  <footer>
+    <a href="https://github.com/p10-con/cli_lab" target="_blank" rel="noopener">github.com/p10-con/cli_lab</a>
+  </footer>
+</body>
+</html>

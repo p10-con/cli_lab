@@ -1,0 +1,1 @@
+{ "description": "二重振り子のカオス的な軌跡をリアルタイム描画", "run": "node index.js" }

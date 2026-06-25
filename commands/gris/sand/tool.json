@@ -1,0 +1,1 @@
+{ "description": "落下する砂のセルオートマトンシミュレーション", "run": "node index.js" }

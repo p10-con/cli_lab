@@ -41,7 +41,7 @@ def show_help(tools: dict) -> None:
     print("利用可能なツール:")
     for (username, toolname), info in tools.items():
         desc = info["config"].get("description", "")
-        print(f"  {username}/{toolname:<20} {desc}")
+        print(f"  {username} {toolname:<20} {desc}")
 
 
 def run_install(tool_path: Path, install_cmd: str) -> bool:

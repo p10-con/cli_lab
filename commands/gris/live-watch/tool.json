@@ -1,0 +1,4 @@
+{
+  "description": "ディレクトリをリアルタイム監視してファイル変更を表示",
+  "run": "node index.js"
+}

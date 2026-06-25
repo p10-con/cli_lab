@@ -1,0 +1,1 @@
+{ "description": "ニュートンの振り子のターミナルアニメーション", "run": "node index.js" }
