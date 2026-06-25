@@ -1,0 +1,4 @@
+{
+  "description": "マトリックス風の文字の雨をターミナルに降らせる",
+  "run": "node index.js"
+}
