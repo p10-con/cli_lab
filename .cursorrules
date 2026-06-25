@@ -5,8 +5,9 @@
 
 ## 構成ルール
 
-- CLI ツールは `commands/{username}/{tool}/` に置く
-- Web ページは `pages/{username}/{site}/` に置く
+- `commands/` や `pages/` の直下にファイルを置かない — 必ず識別子ディレクトリを挟む
+- CLI ツールは `commands/{識別子}/{tool}/` に置く（識別子 = GitHub ユーザー名等、他と被らない文字列）
+- Web ページは `pages/{識別子}/{site}/` に置く
 - `lab.py`（ディスパッチャー）は変更しない
 - ルートに依存ファイル（package.json 等）を追加しない
 
