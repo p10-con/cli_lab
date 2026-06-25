@@ -26,9 +26,9 @@ sounds = [
 ]
 
 cats = [
-    " /\\_/\\  \n( {sound} )\n > ^ <  ",
-    " /\\_/\\  \n( {sound} )\n  > ~ <  ",
-    "  /\\  /\\ \n ( {sound} )\n  =( Y )= ",
+    " /\\_/\\  \n( -ω- ) {sound}\n > ^ <  ",
+    " /\\_/\\  \n( 'A' ) {sound}\n  > ~ <  ",
+    "  /\\  /\\ \n ( 'Y' ) {sound}\n  =( Y )= ",
 ]
 
 choice = random.choice(sounds)
