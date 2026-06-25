@@ -68,7 +68,7 @@ python lab.py example hello Claude
 
 ## 規約
 
-- **自分の名前空間にだけ置く**：`commands/{username}/` または `pages/{username}/`
+- **識別子ディレクトリを必ず挟む（最重要）**：`commands/` や `pages/` の直下にファイルを置いてはいけない。必ず `commands/{識別子}/{ツール名}/` の形にする。識別子は他の参加者と被らない文字列（GitHub ユーザー名推奨）
 - **依存は自分のディレクトリ内で管理**：`package.json`・`requirements.txt` 等はツールディレクトリに置く
 - **`node_modules/`・`.venv/`・`dist/` はコミットしない**（`.gitignore` 済み）
 - **他のコントリビューターのディレクトリを変更しない**

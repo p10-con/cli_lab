@@ -10,13 +10,30 @@
 
 ```
 commands/
-└── {あなたのGitHubユーザー名}/
+└── {ユニークな識別子}/     ← 必ずこの階層を挟む（詳細は下記）
     └── {ツール名}/
-        ├── README.md   ← 必須
+        ├── README.md       ← 必須
         └── （ソースファイル等）
 ```
 
-- **自分の名前空間（username）配下にだけ置く**
+### ⚠️ 必須ルール：識別子ディレクトリを必ず挟むこと
+
+`commands/` や `pages/` の直下にツールやファイルを置いてはいけません。
+**必ず自分の識別子ディレクトリを一段挟んでください。**
+
+```
+# NG ❌
+commands/hello/main.py
+pages/index.html
+
+# OK ✅
+commands/alice/hello/main.py
+pages/alice/portfolio/index.html
+```
+
+識別子は **他の参加者と被らない文字列** であれば何でも構いません。
+GitHub ユーザー名がそのまま使えて確実です。
+
 - 言語・フレームワークは自由（Node.js, Python, Go, Rust, シェルスクリプト…なんでも）
 - 依存パッケージは自分のディレクトリ内で管理（`package.json` や `requirements.txt` など）
 
