@@ -48,6 +48,78 @@ commands/
 
 ---
 
+## パッケージ管理
+
+依存パッケージは**必ず自分のツールディレクトリ内で管理**してください。ルートに `package.json` や `requirements.txt` を置かないこと。
+
+### Python
+
+```bash
+# venv を作成（ディレクトリ名は .venv 推奨）
+python -m venv .venv
+
+# 有効化
+source .venv/bin/activate        # Mac / Linux
+.venv\Scripts\activate           # Windows
+
+# 依存をインストール
+pip install -r requirements.txt
+
+# 依存を追加したとき
+pip freeze > requirements.txt
+```
+
+`uv` を使うとより高速で手軽です：
+
+```bash
+uv run main.py                   # venv を自動で作って実行
+uv add requests                  # 依存追加（pyproject.toml に記録）
+```
+
+`.venv/` はコミットしないでください（`.gitignore` 済み）。
+
+### Node.js
+
+```bash
+npm install                      # node_modules を作成
+npm run start                    # 実行
+```
+
+`node_modules/` はコミットしないでください（`.gitignore` 済み）。`package-lock.json` はコミットしてOKです。
+
+### Go
+
+```bash
+go mod init github.com/{username}/{tool}
+go mod tidy                      # 依存を整理
+go run main.go
+```
+
+`go.mod` / `go.sum` はコミットしてください。
+
+### Rust
+
+```bash
+cargo run
+cargo build --release            # リリースビルド
+```
+
+`Cargo.lock` はコミットしてください。`target/` はコミットしないでください（`.gitignore` 済み）。
+
+### 外部APIキーが必要な場合
+
+```bash
+# .env を作る（コミットしない）
+echo "API_KEY=xxxxx" > .env
+
+# .env.example をコミット（キーの値は空にする）
+echo "API_KEY=" > .env.example
+```
+
+`.env` は `.gitignore` 済みですが、念のため `git status` で確認してからコミットしてください。
+
+---
+
 ## PRの出し方
 
 1. `commands/{username}/{tool-name}/` を作成
