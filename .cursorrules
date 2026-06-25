@@ -1,0 +1,22 @@
+# cli_lab — Cursor Rules
+
+複数人が CLI ツールや静的 Web ページを作れる共有リポジトリです。
+詳細は CLAUDE.md と CONTRIBUTING.md を参照してください。
+
+## 構成ルール
+
+- CLI ツールは `commands/{username}/{tool}/` に置く
+- Web ページは `pages/{username}/{site}/` に置く
+- `lab.py`（ディスパッチャー）は変更しない
+- ルートに依存ファイル（package.json 等）を追加しない
+
+## 各ツールに必須のファイル
+
+1. `tool.json` — `run`（必須）と `install`（任意）を含む JSON
+2. `README.md` — 概要・使い方・動作例
+
+## 禁止事項
+
+- 他の username のディレクトリを変更する
+- シークレット・API キーをコードにハードコードする
+- ユーザー確認なしに破壊的操作（ファイル削除・システムコマンド）を実行する
