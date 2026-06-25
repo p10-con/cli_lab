@@ -1,0 +1,4 @@
+{
+  "description": "挨拶するサンプルツール",
+  "run": "python main.py"
+}

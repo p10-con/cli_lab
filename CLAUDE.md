@@ -1,51 +1,80 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、このリポジトリで作業する Claude Code (claude.ai/code) 向けのガイダンスです。
 
-## What This Repo Is
+## このリポジトリについて
 
-A shared playground where multiple contributors freely build CLI tools and submit PRs. Each contributor owns a namespaced subdirectory under `commands/` and can use any language/framework they like.
+複数のコントリビューターが自由に CLI ツールや Web ページを作って PR を出せる共有の遊び場です。
 
-## Directory Structure
+## ディレクトリ構成
 
 ```
 cli_lab/
+├── lab.py                      # ディスパッチャー（CLIツールの起動口）
 ├── commands/
-│   └── {username}/          # Each contributor's namespace
-│       └── {tool-name}/     # Individual CLI tool
-│           ├── README.md    # Required: what it does, usage, example output
-│           └── ...          # Source files, any language
-├── shared/                  # Optional cross-contributor utilities
+│   └── {username}/{tool}/      # CLI ツール
+│       ├── tool.json           # 起動設定（必須）
+│       ├── README.md           # 説明・使い方（必須）
+│       └── ...ソースファイル
+├── pages/
+│   └── {username}/{site}/      # GitHub Pages 用の静的サイト
+│       └── ...HTML/CSS/JS等
 ├── CONTRIBUTING.md
 └── README.md
 ```
 
-## Adding a New CLI Tool
+## ディスパッチャーの使い方
 
-1. Create `commands/{your-username}/{tool-name}/`
-2. Add a `README.md` with: description, usage, example output
-3. Add your source files
-4. Open a PR — at least 1 approval required before merging
+```bash
+python lab.py <username> <tool> [args...]   # ツールを実行
+python lab.py --list                        # 一覧表示
+```
 
-## Conventions
+例：
+```bash
+python lab.py example hello
+python lab.py example hello Claude
+```
 
-- **Namespace by username**: Prevents naming conflicts. Directory name = your GitHub username.
-- **Self-contained tools**: Each tool directory should work independently.
-- **No shared dependency pollution**: If your tool needs packages, manage them inside your own directory (own `package.json`, `requirements.txt`, etc.).
-- **Shared utilities**: If something is genuinely reusable across tools, propose adding it to `shared/` in the PR description.
+## tool.json の書き方
 
-## Safety Rules
+```json
+{
+  "description": "ツールの一行説明",
+  "run": "python main.py",
+  "install": "pip install -r requirements.txt"
+}
+```
 
-These are enforced at review time:
+- `run`（必須）: 実行コマンド。`cwd` はツールのディレクトリになる
+- `install`（任意）: 初回のみ自動実行されるセットアップコマンド
+- `description`（任意）: `--list` に表示される説明
 
-- No file deletion outside the tool's own directory
-- No silent network requests (document any external API calls in the tool's README)
-- No hardcoded secrets — use `.env` files, add `.env` to `.gitignore`
-- Destructive operations (system commands, shell exec, etc.) require explicit opt-in from the user running the tool
+初回 `install` が成功すると `.installed` ファイルが生成され、2回目以降はスキップされる。
 
-## PR Requirements
+## 新しい CLI ツールの追加手順
 
-- CI must pass (if configured)
-- Tool's `README.md` must exist and describe usage
-- 1 reviewer approval minimum
-- Don't modify other contributors' directories without their consent
+1. `commands/{GitHubユーザー名}/{ツール名}/` を作成
+2. `tool.json` を書く
+3. `README.md` に概要・使い方・動作例を書く
+4. ソースファイルを追加し、ローカルで動作確認
+5. PR を開く（1人以上の Approve でマージ可）
+
+## 新しい Pages サイトの追加手順
+
+1. `pages/{GitHubユーザー名}/{サイト名}/` を作成
+2. HTML / CSS / JS を置く
+3. PR を開く
+
+## 規約
+
+- **自分の名前空間にだけ置く**：`commands/{username}/` または `pages/{username}/`
+- **依存は自分のディレクトリ内で管理**：`package.json`・`requirements.txt` 等はツールディレクトリに置く
+- **`node_modules/`・`.venv/`・`dist/` はコミットしない**（`.gitignore` 済み）
+- **他のコントリビューターのディレクトリを変更しない**
+
+## 安全ルール
+
+- 秘密情報（APIキー等）をコードにハードコードしない（`.env` を使い `.gitignore` に追加）
+- 外部 API へのリクエストはツールの `README.md` に明記する
+- ファイル削除・システムコマンド等の破壊的操作は実行前にユーザーへ確認を求める

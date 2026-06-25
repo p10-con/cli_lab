@@ -25,3 +25,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# lab ディスパッチャーが生成するインストール済みマーカー
+.installed
