@@ -12,14 +12,14 @@ python lab.py gris meow
 
 ```
  /\_/\  
-( mao~ )
+( -ω- ) mao~
  > ^ <  
 ```
 
 ```
- /\_/\  
-( SHAAAH!! )
-  > ~ <  
+  /\  /\ 
+ ( 'Y' ) SHAAAH!!
+  =( Y )= 
 ```
 
 ```
