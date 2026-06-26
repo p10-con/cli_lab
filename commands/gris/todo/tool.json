@@ -1,0 +1,4 @@
+{
+  "description": "GitHub の data ブランチで管理する Todo CLI",
+  "run": "node index.js"
+}
