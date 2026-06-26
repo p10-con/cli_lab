@@ -1,0 +1,4 @@
+{
+  "description": "モノクロのオーロラ＋カーソルで色が灯る",
+  "run": "node index.js"
+}
