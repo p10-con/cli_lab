@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gris Wipe</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+
+    #canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #video {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      width: 80px;
+      height: 60px;
+      object-fit: cover;
+      border-radius: 5px;
+      opacity: 0.55;
+      transform: scaleX(-1);
+      z-index: 10;
+      border: 1px solid rgba(160, 190, 230, 0.25);
+    }
+
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 2, 14, 0.93);
+      color: rgba(190, 210, 240, 0.92);
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 1.05rem;
+      line-height: 1.7;
+      z-index: 20;
+      gap: 10px;
+      text-align: center;
+      padding: 2.5rem;
+      transition: opacity 0.6s ease;
+    }
+    #overlay.hidden { opacity: 0; pointer-events: none; }
+    #overlay .icon { font-size: 2.8rem; margin-bottom: 4px; }
+    #overlay .hint { font-size: 0.78rem; color: rgba(160, 185, 220, 0.55); margin-top: 6px; }
+    #overlay .loading { font-size: 0.85rem; color: rgba(160, 200, 255, 0.6); }
+  </style>
+
+  <script type="importmap">
+    { "imports": { "three": "https://unpkg.com/three@0.165.0/build/three.module.js" } }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <video id="video" autoplay muted playsinline></video>
+
+  <div id="overlay">
+    <div class="icon">🎥</div>
+    <div>カメラを許可してください</div>
+    <div>手をカメラにかざすと、曇りガラスを拭うことができます</div>
+    <div class="hint">Allow camera access · Hold your hand up to wipe the frosted glass</div>
+    <div class="loading" id="loadingMsg"></div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Shaders
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const VERT = /* glsl */`
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    // ── Night cityscape background ──────────────────────────────────────────
+    const BG_FRAG = /* glsl */`
+      precision highp float;
+      varying vec2 vUv;
+      uniform float uTime;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+          f.y
+        );
+      }
+
+      // Procedural building height at normalized x
+      float buildingH(float x) {
+        float h = 0.0;
+        // 16 buildings across width
+        for (int i = 0; i < 16; i++) {
+          float fi  = float(i);
+          float bx  = fi / 15.0;
+          float bw  = 0.022 + hash(vec2(fi, 0.3)) * 0.045;
+          float bh  = 0.38  + hash(vec2(fi, 1.3)) * 0.58; // relative to horizonY
+          if (abs(x - bx) < bw) h = max(h, bh);
+        }
+        return h;
+      }
+
+      void main() {
+        vec2 uv = vUv;
+        float horizonY = 0.38;
+
+        // ── Sky gradient ────────────────────────────────────────────────────
+        vec3 skyTop     = vec3(0.003, 0.003, 0.016);
+        vec3 skyHorizon = vec3(0.012, 0.026, 0.060);
+        float skyT = smoothstep(horizonY - 0.04, 1.0, uv.y);
+        vec3 col = mix(skyHorizon, skyTop, skyT);
+
+        // City-glow halo at horizon (amber warmth from street lights)
+        float hglow = exp(-abs(uv.y - horizonY) * 24.0);
+        col += vec3(0.20, 0.10, 0.02) * hglow * 0.85;
+
+        // ── Stars (only above horizon) ──────────────────────────────────────
+        if (uv.y > horizonY + 0.03) {
+          float sv = hash(floor(uv * 270.0));
+          if (sv > 0.982) {
+            float twinkle = 0.55 + 0.45 * sin(uTime * (1.4 + sv * 4.5) + sv * 31.4);
+            float brightness = (sv - 0.982) / 0.018;
+            col += vec3(0.90, 0.93, 1.0) * twinkle * brightness * 0.95;
+          }
+        }
+
+        // ── Moon (soft disc with glow) ──────────────────────────────────────
+        vec2 moonPos = vec2(0.72, 0.76);
+        float mDist  = length(uv - moonPos);
+        col += vec3(0.05, 0.08, 0.14) * exp(-mDist * mDist * 25.0);   // halo
+        col += vec3(0.88, 0.91, 1.00) * smoothstep(0.027, 0.017, mDist); // disc
+
+        // ── Building silhouettes ────────────────────────────────────────────
+        float bRelH  = buildingH(uv.x);
+        float bTopY  = bRelH * horizonY; // world y of building top
+
+        if (uv.y < bTopY) {
+          vec3 bldBase = vec3(0.007, 0.011, 0.018);
+
+          // Window grid
+          vec2 wCell = floor(uv * vec2(38.0, 25.0));
+          float lit   = step(0.60, hash(wCell + vec2(6.1, 3.7)));
+          vec2 wFrac  = fract(uv * vec2(38.0, 25.0));
+          float wMask = step(0.10, wFrac.x) * step(wFrac.x, 0.84)
+                      * step(0.10, wFrac.y) * step(wFrac.y, 0.82);
+
+          float isWarm  = step(0.5, hash(wCell + vec2(2.0)));
+          vec3 wWarm    = vec3(1.00, 0.86, 0.50);
+          vec3 wCool    = vec3(0.62, 0.80, 1.00);
+          vec3 wCol     = mix(wCool, wWarm, isWarm) * 0.52;
+
+          col = mix(bldBase, wCol, lit * wMask);
+
+          // Top-edge glow from reflected city light
+          float edgeGlow = smoothstep(bTopY - 0.008, bTopY, uv.y);
+          col += vec3(0.08, 0.05, 0.01) * edgeGlow;
+        }
+
+        // ── Ground / street glow strip ──────────────────────────────────────
+        if (uv.y < 0.035) {
+          float streetT = uv.y / 0.035;
+          col = mix(vec3(0.04, 0.03, 0.01), col, streetT);
+          // A few warm street-lamp reflections on wet ground
+          for (int l = 0; l < 5; l++) {
+            float fl  = float(l);
+            float lx  = (fl + 0.5) / 5.0;
+            float ldx = abs(uv.x - lx);
+            col += vec3(0.30, 0.18, 0.04) * exp(-ldx * ldx * 120.0) * (1.0 - streetT) * 0.8;
+          }
+        }
+
+        // ── Tree silhouettes (foreground, very bottom) ──────────────────────
+        for (int t = 0; t < 11; t++) {
+          float ft  = float(t);
+          float tx  = ft / 10.0 + (hash(vec2(ft, 9.0)) - 0.5) * 0.10;
+          float tw  = 0.034 + hash(vec2(ft, 10.0)) * 0.028;
+          float th  = 0.068 + hash(vec2(ft, 11.0)) * 0.10;
+          float dx  = abs(uv.x - tx) / tw;
+          if (dx < 1.0) {
+            // Pine-ish silhouette (parabolic)
+            float h = th * (1.0 - dx * dx * 0.9);
+            if (uv.y < h) {
+              col = mix(col, vec3(0.003, 0.007, 0.011), 0.97);
+            }
+          }
+        }
+
+        // Subtle vignette
+        float vig = 1.0 - dot(uv - 0.5, uv - 0.5) * 1.1;
+        col *= clamp(vig, 0.0, 1.0);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `;
+
+    // ── Frosted glass overlay ───────────────────────────────────────────────
+    const GLASS_FRAG = /* glsl */`
+      precision highp float;
+      varying vec2 vUv;
+      uniform sampler2D uWipeMap;
+      uniform float uTime;
+
+      float hash(vec2 p) {
+        return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+      }
+
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(
+          mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x),
+          mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x),
+          f.y
+        );
+      }
+
+      float fbm(vec2 p) {
+        return noise(p)               * 0.5000
+             + noise(p * 2.1 + 1.7)  * 0.2500
+             + noise(p * 4.3 + 3.1)  * 0.1250
+             + noise(p * 8.7 + 5.3)  * 0.0625;
+      }
+
+      void main() {
+        vec2 uv   = vUv;
+        float wipe = texture2D(uWipeMap, uv).r;
+
+        // Layered frost noise
+        float coarse = fbm(uv * 9.0);
+        float fine   = fbm(uv * 26.0 + vec2(2.3, 4.7));
+        float frost  = coarse * 0.60 + fine * 0.40;
+
+        // Very slow condensation drift
+        float drift = noise(vec2(uv.x * 70.0, uTime * 0.05 + uv.y * 5.0)) * 0.045;
+
+        // Glass colour: cold white with slight blue-grey cast
+        vec3 col = vec3(0.80, 0.87, 0.96) + frost * 0.13 + drift;
+
+        // Smear / wetness at the wipe boundary
+        float edge = smoothstep(0.15, 0.32, wipe) * (1.0 - smoothstep(0.68, 0.85, wipe));
+        col += vec3(0.10, 0.13, 0.17) * edge;
+        col += vec3(0.06) * edge * fine; // a little extra texture on the smear
+
+        // Alpha: fully opaque when unwrapped, fades to 0 when wiped
+        float alpha = 1.0 - smoothstep(0.22, 0.78, wipe);
+
+        gl_FragColor = vec4(col, alpha);
+      }
+    `;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Three.js setup
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const canvas = document.getElementById('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.autoClear = false;
+
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+    const quad = new THREE.PlaneGeometry(2, 2);
+
+    // Background scene
+    const bgScene     = new THREE.Scene();
+    const bgUniforms  = { uTime: { value: 0.0 } };
+    const bgMesh      = new THREE.Mesh(quad, new THREE.ShaderMaterial({
+      vertexShader: VERT,
+      fragmentShader: BG_FRAG,
+      uniforms: bgUniforms,
+      depthTest: false,
+      depthWrite: false
+    }));
+    bgMesh.frustumCulled = false;
+    bgScene.add(bgMesh);
+
+    // Wipe texture (256×256 RGBA, starts fully black = fully frosted)
+    const WIPE_SIZE = 256;
+    const wipeData  = new Uint8Array(WIPE_SIZE * WIPE_SIZE * 4);
+    // Pre-fill alpha channel to 255
+    for (let i = 3; i < wipeData.length; i += 4) wipeData[i] = 255;
+
+    const wipeTex = new THREE.DataTexture(
+      wipeData, WIPE_SIZE, WIPE_SIZE,
+      THREE.RGBAFormat, THREE.UnsignedByteType
+    );
+    wipeTex.minFilter = THREE.LinearFilter;
+    wipeTex.magFilter = THREE.LinearFilter;
+    wipeTex.needsUpdate = true;
+
+    // Glass overlay scene
+    const glassScene    = new THREE.Scene();
+    const glassUniforms = { uWipeMap: { value: wipeTex }, uTime: { value: 0.0 } };
+    const glassMesh     = new THREE.Mesh(quad, new THREE.ShaderMaterial({
+      vertexShader: VERT,
+      fragmentShader: GLASS_FRAG,
+      uniforms: glassUniforms,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false
+    }));
+    glassMesh.frustumCulled = false;
+    glassScene.add(glassMesh);
+
+    // Resize
+    window.addEventListener('resize', () => {
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Wipe brush
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const BRUSH_RADIUS = 30;
+    const BRUSH_SIGMA  = BRUSH_RADIUS * 0.45;
+    // Pre-compute brush kernel for speed
+    const BRUSH_D = BRUSH_RADIUS * 2 + 1;
+    const brushKernel = new Float32Array(BRUSH_D * BRUSH_D);
+    for (let dy = -BRUSH_RADIUS; dy <= BRUSH_RADIUS; dy++) {
+      for (let dx = -BRUSH_RADIUS; dx <= BRUSH_RADIUS; dx++) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 > BRUSH_RADIUS * BRUSH_RADIUS) continue;
+        const str = Math.exp(-d2 / (2 * BRUSH_SIGMA * BRUSH_SIGMA));
+        brushKernel[(dy + BRUSH_RADIUS) * BRUSH_D + (dx + BRUSH_RADIUS)] = str;
+      }
+    }
+
+    let wipeNeedsUpdate = false;
+
+    function paintBrush(nx, ny) {
+      // nx, ny: normalized [0,1] wipe-texture coordinates
+      // ny=0 → bottom of texture/screen, ny=1 → top
+      const cx = Math.round(nx * (WIPE_SIZE - 1));
+      const cy = Math.round(ny * (WIPE_SIZE - 1));
+
+      for (let dy = -BRUSH_RADIUS; dy <= BRUSH_RADIUS; dy++) {
+        for (let dx = -BRUSH_RADIUS; dx <= BRUSH_RADIUS; dx++) {
+          const px = cx + dx;
+          const py = cy + dy;
+          if (px < 0 || px >= WIPE_SIZE || py < 0 || py >= WIPE_SIZE) continue;
+
+          const str = brushKernel[(dy + BRUSH_RADIUS) * BRUSH_D + (dx + BRUSH_RADIUS)];
+          if (str === 0) continue;
+
+          const add = Math.ceil(str * 38);
+          const i   = (py * WIPE_SIZE + px) * 4;
+          const nv  = Math.min(255, wipeData[i] + add);
+          wipeData[i]     = nv;
+          wipeData[i + 1] = nv;
+          wipeData[i + 2] = nv;
+          // wipeData[i + 3] stays 255 (alpha)
+        }
+      }
+      wipeNeedsUpdate = true;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  MediaPipe Hands
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const video      = document.getElementById('video');
+    const overlay    = document.getElementById('overlay');
+    const loadingMsg = document.getElementById('loadingMsg');
+
+    let handLandmarker  = null;
+    let cameraReady     = false;
+    let mediapipeReady  = false;
+    let lastDetectTs    = -1;
+
+    function tryHideOverlay() {
+      if (cameraReady && mediapipeReady) {
+        overlay.classList.add('hidden');
+      }
+    }
+
+    async function initMediaPipe() {
+      try {
+        loadingMsg.textContent = 'MediaPipe を読み込み中…';
+        const { HandLandmarker, FilesetResolver } = globalThis.mediapipeTasksVision;
+        const resolver = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+        );
+        handLandmarker = await HandLandmarker.createFromOptions(resolver, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task'
+          },
+          runningMode: 'VIDEO',
+          numHands: 2
+        });
+        mediapipeReady = true;
+        loadingMsg.textContent = '';
+        tryHideOverlay();
+      } catch (err) {
+        console.error('MediaPipe init failed:', err);
+        loadingMsg.textContent = 'MediaPipe の読み込みに失敗しました';
+      }
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width:  { ideal: 640 },
+            height: { ideal: 480 }
+          }
+        });
+        video.srcObject = stream;
+        await new Promise(resolve => {
+          video.addEventListener('loadeddata', resolve, { once: true });
+        });
+        cameraReady = true;
+        tryHideOverlay();
+      } catch (err) {
+        overlay.innerHTML = `
+          <div class="icon">⚠️</div>
+          <div>カメラが使用できません</div>
+          <div class="hint">${err.message}</div>
+        `;
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Render loop
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Landmark indices for all 5 fingertips
+    const FINGERTIP_INDICES = [4, 8, 12, 16, 20];
+
+    function animate(ts) {
+      requestAnimationFrame(animate);
+
+      const t = ts * 0.001;
+      bgUniforms.uTime.value    = t;
+      glassUniforms.uTime.value = t;
+
+      // Hand detection
+      if (handLandmarker && cameraReady && video.readyState >= 2 && ts !== lastDetectTs) {
+        lastDetectTs = ts;
+        const results = handLandmarker.detectForVideo(video, ts);
+
+        if (results && results.landmarks && results.landmarks.length > 0) {
+          for (const hand of results.landmarks) {
+            for (const lmIdx of FINGERTIP_INDICES) {
+              const lm = hand[lmIdx];
+              if (!lm) continue;
+              // Mirror X for selfie view; flip Y (MediaPipe y=0 is top, texture y=0 is bottom)
+              paintBrush(1.0 - lm.x, 1.0 - lm.y);
+            }
+          }
+        }
+      }
+
+      // Upload wipe texture only when changed
+      if (wipeNeedsUpdate) {
+        wipeTex.needsUpdate = true;
+        wipeNeedsUpdate = false;
+      }
+
+      // Two-pass render: background then glass overlay
+      renderer.clear();
+      renderer.render(bgScene, camera);
+      renderer.render(glassScene, camera);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Bootstrap
+    // ─────────────────────────────────────────────────────────────────────────
+
+    requestAnimationFrame(animate);
+    initMediaPipe();
+    startCamera();
+  </script>
+</body>
+</html>
