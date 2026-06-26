@@ -1,0 +1,4 @@
+{
+  "description": "謎の研究施設からの脱出アドベンチャー",
+  "run": "node index.js"
+}
