@@ -73,6 +73,12 @@ python lab.py example hello Claude
 - **`node_modules/`・`.venv/`・`dist/` はコミットしない**（`.gitignore` 済み）
 - **他のコントリビューターのディレクトリを変更しない**
 
+## ブランチルール
+
+- **`main` は保護ブランチ**：直接 push 禁止。必ず PR 経由でマージすること
+- **ブランチ命名**：`{username}/{feature}` の形式を推奨（例: `gris/add-tool`）
+- **PR マージ条件**：1人以上の Approve が必要
+
 ## 安全ルール
 
 - 秘密情報（APIキー等）をコードにハードコードしない（`.env` を使い `.gitignore` に追加）
