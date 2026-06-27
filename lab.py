@@ -7,6 +7,7 @@ cli_lab ディスパッチャー
   python lab.py --list
 """
 
+import re
 import sys
 import json
 import subprocess
@@ -100,8 +101,14 @@ def main() -> None:
     if rest:
         run_cmd = run_cmd + " " + " ".join(rest)
 
-    result = subprocess.run(run_cmd, shell=True, cwd=tool_path)
-    sys.exit(result.returncode)
+    # python / python3 を実行中のインタープリタに置換（macOS 等で python が存在しない環境に対応）
+    run_cmd = re.sub(r'^python3?(?=\s|$)', sys.executable, run_cmd)
+
+    try:
+        result = subprocess.run(run_cmd, shell=True, cwd=tool_path)
+        sys.exit(result.returncode)
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
