@@ -20,8 +20,8 @@ const pivotCols = Array.from({ length: NUM }, (_, i) => startCol + i * SPACING);
 let theta = Math.PI / 5;  // 最初は右の玉が持ち上がっている
 let omega = 0;
 
-process.stdout.write('\x1b[?25l\x1b[2J');
-const restore = () => { process.stdout.write('\x1b[?25h\x1b[2J\x1b[H\x1b[0m'); process.exit(0); };
+process.stdout.write('\x1b[?25l\x1b[?1049h\x1b[2J\x1b[H');
+const restore = () => { process.stdout.write('\x1b[?25h\x1b[?1049l\x1b[0m'); process.exit(0); };
 process.on('SIGINT', restore);
 process.on('SIGTERM', restore);
 

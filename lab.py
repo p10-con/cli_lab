@@ -100,8 +100,11 @@ def main() -> None:
     if rest:
         run_cmd = run_cmd + " " + " ".join(rest)
 
-    result = subprocess.run(run_cmd, shell=True, cwd=tool_path)
-    sys.exit(result.returncode)
+    try:
+        result = subprocess.run(run_cmd, shell=True, cwd=tool_path)
+        sys.exit(result.returncode)
+    except KeyboardInterrupt:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
