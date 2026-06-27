@@ -1,0 +1,5 @@
+{
+  "description": "ドラクエ1風テキストRPG — 魔王ゾーマを倒して世界を救え！",
+  "run": "node index.js",
+  "install": "npm install"
+}

@@ -13,8 +13,8 @@ const ARM  = Math.min(ROWS - CY - 3, 14);
 const trail = [];
 const TRAIL = 100;
 
-process.stdout.write('\x1b[?25l\x1b[2J');
-const restore = () => { process.stdout.write('\x1b[?25h\x1b[2J\x1b[H\x1b[0m'); process.exit(0); };
+process.stdout.write('\x1b[?25l\x1b[?1049h\x1b[2J\x1b[H');
+const restore = () => { process.stdout.write('\x1b[?25h\x1b[?1049l\x1b[0m'); process.exit(0); };
 process.on('SIGINT', restore);
 process.on('SIGTERM', restore);
 
