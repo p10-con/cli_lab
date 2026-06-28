@@ -5,8 +5,6 @@
  * Node.js 18+ 標準ライブラリのみ使用
  */
 
-import readline from 'readline';
-
 // ─── ターミナルサイズ ────────────────────────────────────────────────────────
 const COLS = process.stdout.columns || 80;
 const ROWS = process.stdout.rows    || 24;
@@ -64,19 +62,28 @@ function hslToRgb(h, s, l) {
 }
 
 // ─── カーソル周辺の aurora カラーコード ──────────────────────────────────────
-function getColorCode(x, y, cx, cy, t) {
-  const dist = Math.sqrt((x - cx) ** 2 + (y - cy) ** 2);
-  const radius = 18;
-  const proximity = Math.max(0, 1 - dist / radius);
+// 文字セルは高さ:幅 ≈ 2:1 なので Y 方向を 2 倍に補正して円形にする
+const CHAR_ASPECT = 2;
 
-  if (proximity < 0.01) return null; // モノクロ領域
+function getColorCode(x, y, cx, cy, t) {
+  const dx   = x - cx;
+  const dy   = (y - cy) * CHAR_ASPECT;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  const radius = 22;
+  const sigma  = radius * 0.42;
+
+  // ガウシアンフォールオフで境界を自然にぼかす
+  const proximity = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+
+  if (proximity < 0.005) return null; // モノクロ領域
 
   // 列位置 + 時刻で色相をゆっくり変化させる
   const hue = ((x / COLS * 0.6) + t * 0.04) % 1;
   const [r, g, b] = hslToRgb(hue, 1.0, 0.55);
 
-  // 中心に向かうほど鮮やか、外側は白に近づく
-  const blend = proximity ** 1.8;
+  // 中心に向かうほど鮮やか、外側はモノクロへ滑らかに溶ける
+  const blend = proximity ** 1.6;
   const fr = Math.round(r * blend + 255 * (1 - blend));
   const fg = Math.round(g * blend + 255 * (1 - blend));
   const fb = Math.round(b * blend + 255 * (1 - blend));
@@ -126,12 +133,8 @@ function cleanup() {
 process.on('SIGINT',  cleanup);
 process.on('SIGTERM', cleanup);
 
-// ─── 入力処理（data イベントで一本化）──────────────────────────────────────
-// readline は keypress イベントの発火のみに使い、
-// data リスナーと競合しないよう pause してから stdin を直接読む。
+// ─── 入力処理 ──────────────────────────────────────────────────────────────
 if (process.stdin.isTTY) {
-  // keypress を有効にするだけ emit させる（実際のハンドリングは data で行う）
-  readline.emitKeypressEvents(process.stdin);
   process.stdin.setRawMode(true);
 }
 
