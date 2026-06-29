@@ -130,7 +130,7 @@ function renderFrame(t) {
       }
 
       const hue = auroraHue(normDy);
-      const [r, g, b] = hslToRgb(hue, 1.0, 0.50);
+      const [r, g, b] = hslToRgb(hue, 0.70, 0.38);
 
       // 暗い端ほど背景色(8,10,16)に向かってブレンド → 黒に溶け込む
       const fade = Math.min(1, bri * 5);
