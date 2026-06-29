@@ -16,29 +16,62 @@ function brightnessToChar(b) {
   return CHARS[Math.min(CHARS.length - 1, Math.floor(b * CHARS.length))];
 }
 
-// ─── オーロラ輝度計算 ────────────────────────────────────────────────────────
+// ─── オーロラ輝度計算 ─────────────────────────────────────────────────────────
+
+// 1D スムーズノイズ（カーテン縦レイ構造用）
+function smoothNoise1D(p) {
+  const i  = Math.floor(p);
+  const f  = p - i;
+  const u  = f * f * (3 - 2 * f); // smoothstep
+  const s0 = Math.sin(i       * 127.1 + 311.7) * 43758.5453;
+  const s1 = Math.sin((i + 1) * 127.1 + 311.7) * 43758.5453;
+  return (s0 - Math.floor(s0)) * (1 - u) + (s1 - Math.floor(s1)) * u;
+}
+
+// オーロラ帯の中心 Y（緩やかに揺れる）
+function auroraCenter(nx, t) {
+  return 0.48
+    + 0.10 * Math.sin(nx * 3.8  + t * 0.22)
+    + 0.07 * Math.sin(nx * 8.1  + t * 0.38 + 1.3)
+    + 0.04 * Math.sin(nx * 14.7 + t * 0.55 + 2.7)
+    + 0.02 * Math.sin(nx * 26.3 + t * 0.30 + 0.5);
+}
+
+// オーロラ帯の半幅（カーテンの厚さ、場所・時刻で変化）
+function auroraHalfWidth(nx, t) {
+  return 0.14
+    + 0.04 * Math.sin(nx * 5.5 + t * 0.14 + 3.0)
+    + 0.02 * Math.sin(nx * 9.3 + t * 0.23 + 1.8);
+}
+
+// 縦レイ（カーテン）強度: ノイズ複数オクターブで自然な縞を作る
+function rayIntensity(nx, t) {
+  const n1 = smoothNoise1D(nx * 40 + t * 0.10);
+  const n2 = smoothNoise1D(nx * 18 + t * 0.15 + 5.3);
+  const n3 = smoothNoise1D(nx *  8 + t * 0.06 + 2.1);
+  const n4 = smoothNoise1D(nx *  3 + t * 0.04 + 8.7);
+  return n1 * 0.44 + n2 * 0.28 + n3 * 0.18 + n4 * 0.10;
+}
+
 function auroraBrightness(x, y, t) {
   const nx = x / COLS;
   const ny = y / ROWS;
 
-  // カーテン下端（複数の sin 波を重ね合わせ）
-  const base = 0.42
-    + 0.14 * Math.sin(nx * 6.5  + t * 0.55)
-    + 0.09 * Math.sin(nx * 11.2 + t * 0.83 + 1.3)
-    + 0.06 * Math.sin(nx * 19.0 + t * 1.10 + 2.7)
-    + 0.04 * Math.sin(nx * 31.0 + t * 0.40 + 0.5);
+  const center = auroraCenter(nx, t);
+  const halfW  = auroraHalfWidth(nx, t);
+  const normDy = (ny - center) / halfW; // 0=帯中心、±1=帯端
 
-  // カーテン上端（別の波）
-  const top = 0.22
-    + 0.08 * Math.sin(nx * 8.3  + t * 0.45 + 4.1)
-    + 0.05 * Math.sin(nx * 14.7 + t * 0.70 + 0.9);
+  // 縦方向エンベロープ: 上は緩やかにフェード、下は急速にフェード
+  // （本物のオーロラは上方に向かって薄く伸びる形状）
+  const above = Math.max(0, -normDy);
+  const below = Math.max(0,  normDy);
+  const env   = Math.exp(-(above ** 2) * 1.8) * Math.exp(-(below ** 2) * 4.0);
 
-  const d1 = Math.abs(ny - base);
-  const d2 = Math.abs(ny - top);
-  const bri = Math.exp(-d1 * 28) * 0.80 + Math.exp(-d2 * 22) * 0.55
-            + Math.exp(-d1 * 8)  * 0.20 + Math.exp(-d2 * 6)  * 0.15;
+  // 縦レイ × パルス（オーロラの明滅）
+  const rays  = rayIntensity(nx, t);
+  const pulse = 0.78 + 0.22 * Math.sin(t * 1.1 + nx * 5.3);
 
-  return Math.min(1, bri);
+  return Math.min(1, env * (0.35 + rays * 0.65) * pulse);
 }
 
 // ─── HSL → RGB (0〜255) ──────────────────────────────────────────────────────
@@ -65,6 +98,20 @@ function hslToRgb(h, s, l) {
 // 文字セルは高さ:幅 ≈ 2:1 なので Y 方向を 2 倍に補正して円形にする
 const CHAR_ASPECT = 2;
 
+// 帯内の高度位置でオーロラらしい色相を決定
+// normDy < 0 (帯より上 = 高高度): 赤
+// normDy ≈ 0 (帯中心):            緑
+// normDy > 0 (帯より下):          青紫
+function auroraHue(normDy) {
+  if (normDy < 0) {
+    const k = Math.min(1, -normDy * 1.1);
+    return 0.33 - k * 0.33; // 緑(0.33) → 赤(0.00)
+  } else {
+    const k = Math.min(1, normDy * 1.1);
+    return 0.33 + k * 0.40; // 緑(0.33) → 青紫(0.73)
+  }
+}
+
 function getColorCode(x, y, cx, cy, t) {
   const dx   = x - cx;
   const dy   = (y - cy) * CHAR_ASPECT;
@@ -72,21 +119,27 @@ function getColorCode(x, y, cx, cy, t) {
 
   const radius = 22;
   const sigma  = radius * 0.42;
-
-  // ガウシアンフォールオフで境界を自然にぼかす
   const proximity = Math.exp(-(dist * dist) / (2 * sigma * sigma));
+  if (proximity < 0.005) return null;
 
-  if (proximity < 0.005) return null; // モノクロ領域
+  // 帯内 Y 位置でオーロラらしい色相を決定
+  const nx     = x / COLS;
+  const ny     = y / ROWS;
+  const center = auroraCenter(nx, t);
+  const halfW  = auroraHalfWidth(nx, t);
+  const normDy = (ny - center) / halfW;
 
-  // 列位置 + 時刻で色相をゆっくり変化させる
-  const hue = ((x / COLS * 0.6) + t * 0.04) % 1;
-  const [r, g, b] = hslToRgb(hue, 1.0, 0.55);
+  const hue = auroraHue(normDy);
+  const lum = 0.50 + Math.max(0, -normDy) * 0.07; // 上端(赤)はやや明るい
+  const [r, g, b] = hslToRgb(hue, 1.0, lum);
 
   // 中心に向かうほど鮮やか、外側はモノクロへ滑らかに溶ける
   const blend = proximity ** 1.6;
-  const fr = Math.round(r * blend + 255 * (1 - blend));
-  const fg = Math.round(g * blend + 255 * (1 - blend));
-  const fb = Math.round(b * blend + 255 * (1 - blend));
+  const bri   = auroraBrightness(x, y, t);
+  const mv    = Math.round(40 + bri * 200); // モノクロ輝度
+  const fr = Math.round(r * blend + mv * (1 - blend));
+  const fg = Math.round(g * blend + mv * (1 - blend));
+  const fb = Math.round(b * blend + mv * (1 - blend));
 
   return `\x1b[38;2;${fr};${fg};${fb}m`;
 }
