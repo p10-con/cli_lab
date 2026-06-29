@@ -8,10 +8,10 @@ const COLS = process.stdout.columns || 80;
 const ROWS = process.stdout.rows    || 24;
 
 // ─── ASCII グリフ（暗→明）────────────────────────────────────────────────────
-const CHARS = [' ', '·', ':', '╎', '│', '┃', '║', '█'];
+const CHARS = ['·', ':', '╎', '│', '┃', '║', '█'];
 
 function brightnessToChar(b) {
-  return CHARS[Math.min(CHARS.length - 1, Math.floor(b * CHARS.length))];
+  return CHARS[Math.min(CHARS.length - 1, Math.floor(b * CHARS.length * 1.1))];
 }
 
 // ─── 1D スムーズノイズ（縦レイ構造用）───────────────────────────────────────
@@ -26,16 +26,16 @@ function smoothNoise1D(p) {
 
 // ─── オーロラ形状 ─────────────────────────────────────────────────────────────
 function auroraCenter(nx, t) {
-  return 0.48
-    + 0.10 * Math.sin(nx * 3.8  + t * 0.22)
-    + 0.07 * Math.sin(nx * 8.1  + t * 0.38 + 1.3)
+  return 0.65  // 画面下寄りに配置して上方向に広がる余地を作る
+    + 0.09 * Math.sin(nx * 3.8  + t * 0.22)
+    + 0.06 * Math.sin(nx * 8.1  + t * 0.38 + 1.3)
     + 0.04 * Math.sin(nx * 14.7 + t * 0.55 + 2.7)
     + 0.02 * Math.sin(nx * 26.3 + t * 0.30 + 0.5);
 }
 
 function auroraHalfWidth(nx, t) {
-  return 0.14
-    + 0.04 * Math.sin(nx * 5.5 + t * 0.14 + 3.0)
+  return 0.09  // 帯を細くして下端をくっきりさせる
+    + 0.03 * Math.sin(nx * 5.5 + t * 0.14 + 3.0)
     + 0.02 * Math.sin(nx * 9.3 + t * 0.23 + 1.8);
 }
 
@@ -58,7 +58,9 @@ const AURORA_LAYERS = [
 function layerEnv(normDy) {
   const above = Math.max(0, -normDy);
   const below = Math.max(0,  normDy);
-  return Math.exp(-(above ** 2) * 1.8) * Math.exp(-(below ** 2) * 4.0);
+  // 上方向: 指数減衰でぼわーっと広がる（ガウシアンだと急に消える）
+  // 下方向: 急なガウシアンで下端をくっきりカットオフ
+  return Math.exp(-above * 1.1) * Math.exp(-(below ** 2) * 9.0);
 }
 
 // 輝度と高度位置（色相決定用）を1パスで計算
@@ -122,14 +124,14 @@ function renderFrame(t) {
     for (let col = 0; col < COLS; col++) {
       const { bri, normDy } = auroraCell(col, row, t);
 
-      if (bri < 0.04) {
+      if (bri < 0.008) {
         out += '\x1b[38;2;8;10;16m \x1b[0m'; // 暗い夜空
         continue;
       }
 
       const hue    = auroraHue(normDy);
-      const sat    = Math.min(1, bri * 1.8 + 0.25);
-      const lum    = 0.12 + bri * 0.52;
+      const sat    = Math.min(1, bri * 2.8);      // 暗い上部は彩度低め、帯は鮮やか
+      const lum    = 0.10 + bri * 0.55;
       const [r, g, b] = hslToRgb(hue, sat, lum);
       const ch     = brightnessToChar(bri);
 
