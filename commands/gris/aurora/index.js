@@ -53,25 +53,40 @@ function rayIntensity(nx, t) {
   return n1 * 0.44 + n2 * 0.28 + n3 * 0.18 + n4 * 0.10;
 }
 
+// 3層のオーロラカーテン（視差で奥行きを演出）
+// ts=時間スケール, yo=Y中心オフセット, ws=帯幅スケール, maxBri=最大輝度, phase=位相
+const AURORA_LAYERS = [
+  { ts: 0.55, yo: -0.08, ws: 0.75, maxBri: 0.40, phase: 0.0 }, // 遠景: 遅く・高く・暗い
+  { ts: 1.00, yo:  0.00, ws: 1.00, maxBri: 0.72, phase: 2.3 }, // 中景
+  { ts: 1.55, yo:  0.10, ws: 1.20, maxBri: 1.00, phase: 5.1 }, // 近景: 速く・低く・明るい
+];
+
+// 帯からの距離 → エンベロープ輝度（上は緩やか、下は急速にフェード）
+function layerEnv(normDy) {
+  const above = Math.max(0, -normDy);
+  const below = Math.max(0,  normDy);
+  return Math.exp(-(above ** 2) * 1.8) * Math.exp(-(below ** 2) * 4.0);
+}
+
 function auroraBrightness(x, y, t) {
   const nx = x / COLS;
   const ny = y / ROWS;
 
-  const center = auroraCenter(nx, t);
-  const halfW  = auroraHalfWidth(nx, t);
-  const normDy = (ny - center) / halfW; // 0=帯中心、±1=帯端
+  let total = 0;
+  for (const layer of AURORA_LAYERS) {
+    const lt     = t * layer.ts + layer.phase; // 層ごとに独立した時間
+    const center = auroraCenter(nx, lt) + layer.yo;
+    const halfW  = auroraHalfWidth(nx, lt) * layer.ws;
+    const normDy = (ny - center) / halfW;
 
-  // 縦方向エンベロープ: 上は緩やかにフェード、下は急速にフェード
-  // （本物のオーロラは上方に向かって薄く伸びる形状）
-  const above = Math.max(0, -normDy);
-  const below = Math.max(0,  normDy);
-  const env   = Math.exp(-(above ** 2) * 1.8) * Math.exp(-(below ** 2) * 4.0);
+    const env   = layerEnv(normDy);
+    const rays  = rayIntensity(nx, lt);
+    const pulse = 0.80 + 0.20 * Math.sin(lt * 1.1 + nx * 5.3);
 
-  // 縦レイ × パルス（オーロラの明滅）
-  const rays  = rayIntensity(nx, t);
-  const pulse = 0.78 + 0.22 * Math.sin(t * 1.1 + nx * 5.3);
+    total += env * (0.35 + rays * 0.65) * pulse * layer.maxBri;
+  }
 
-  return Math.min(1, env * (0.35 + rays * 0.65) * pulse);
+  return Math.min(1, total);
 }
 
 // ─── HSL → RGB (0〜255) ──────────────────────────────────────────────────────
@@ -122,12 +137,20 @@ function getColorCode(x, y, cx, cy, t) {
   const proximity = Math.exp(-(dist * dist) / (2 * sigma * sigma));
   if (proximity < 0.005) return null;
 
-  // 帯内 Y 位置でオーロラらしい色相を決定
-  const nx     = x / COLS;
-  const ny     = y / ROWS;
-  const center = auroraCenter(nx, t);
-  const halfW  = auroraHalfWidth(nx, t);
-  const normDy = (ny - center) / halfW;
+  // 各層の寄与を輝度で加重平均した normDy で色相を決定
+  const nx = x / COLS;
+  const ny = y / ROWS;
+  let wSum = 0, ndSum = 0;
+  for (const layer of AURORA_LAYERS) {
+    const lt     = t * layer.ts + layer.phase;
+    const center = auroraCenter(nx, lt) + layer.yo;
+    const halfW  = auroraHalfWidth(nx, lt) * layer.ws;
+    const nd     = (ny - center) / halfW;
+    const w      = layerEnv(nd) * layer.maxBri;
+    wSum  += w;
+    ndSum += nd * w;
+  }
+  const normDy = wSum > 0.001 ? ndSum / wSum : 0;
 
   const hue = auroraHue(normDy);
   const lum = 0.50 + Math.max(0, -normDy) * 0.07; // 上端(赤)はやや明るい
