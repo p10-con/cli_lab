@@ -179,17 +179,20 @@ let cy = Math.floor(ROWS / 2);
 
 // ─── クリーンアップ ──────────────────────────────────────────────────────────
 function cleanup() {
-  process.stdout.write('\x1b[?1003l\x1b[?1006l'); // マウスイベント無効化
+  process.stdout.write('\x1b[?1003l\x1b[?1002l\x1b[?1000l\x1b[?1006l'); // マウスイベント無効化
   process.stdout.write('\x1b[?25h\x1b[2J\x1b[H\x1b[0m'); // カーソル復元・画面クリア
+  process.stdout.write('\x1b[?1049l'); // 代替スクリーンバッファを終了
   process.exit(0);
 }
 process.on('SIGINT',  cleanup);
 process.on('SIGTERM', cleanup);
 
 // ─── 入力処理 ──────────────────────────────────────────────────────────────
-if (process.stdin.isTTY) {
-  process.stdin.setRawMode(true);
-}
+// resume() でフローイングモードに（data イベントを確実に受信するため）
+process.stdin.resume();
+// shell=True 経由だと isTTY が false になる場合があるので try/catch で必ず試みる
+// raw モードなしだとマウスイベントが行バッファリングされて届かない
+try { process.stdin.setRawMode(true); } catch (_) {}
 
 process.stdin.on('data', (data) => {
   const s = data.toString();
@@ -216,11 +219,12 @@ process.stdin.on('data', (data) => {
 });
 
 // ─── 起動 ────────────────────────────────────────────────────────────────────
-// カーソル非表示・画面クリア
-process.stdout.write('\x1b[?25l\x1b[2J');
+// 代替スクリーンバッファ→カーソル非表示→画面クリア
+process.stdout.write('\x1b[?1049h\x1b[?25l\x1b[2J');
 
-// マウスイベント有効化（any-event モード + SGR 拡張）
-process.stdout.write('\x1b[?1003h\x1b[?1006h');
+// マウスイベント有効化（互換性のため全モード有効化 + SGR 拡張座標）
+// ?1000h: クリック, ?1002h: ドラッグ, ?1003h: 移動含む全イベント, ?1006h: SGR座標
+process.stdout.write('\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h');
 
 const INTERVAL = 50; // 20 fps
 setInterval(() => {
