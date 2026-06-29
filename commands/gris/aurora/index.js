@@ -129,13 +129,17 @@ function renderFrame(t) {
         continue;
       }
 
-      const hue    = auroraHue(normDy);
-      const sat    = Math.min(1, bri * 2.8);      // 暗い上部は彩度低め、帯は鮮やか
-      const lum    = 0.10 + bri * 0.55;
-      const [r, g, b] = hslToRgb(hue, sat, lum);
-      const ch     = brightnessToChar(bri);
+      const hue = auroraHue(normDy);
+      const [r, g, b] = hslToRgb(hue, 1.0, 0.50);
 
-      out += `\x1b[38;2;${r};${g};${b}m${ch}\x1b[0m`;
+      // 暗い端ほど背景色(8,10,16)に向かってブレンド → 黒に溶け込む
+      const fade = Math.min(1, bri * 5);
+      const fr = Math.round(r * fade + 8  * (1 - fade));
+      const fg = Math.round(g * fade + 10 * (1 - fade));
+      const fb = Math.round(b * fade + 16 * (1 - fade));
+      const ch = brightnessToChar(bri);
+
+      out += `\x1b[38;2;${fr};${fg};${fb}m${ch}\x1b[0m`;
     }
     if (row < ROWS - 2) out += '\n';
   }
