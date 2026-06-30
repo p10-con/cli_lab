@@ -49,10 +49,11 @@ function rayIntensity(nx, t) {
 
 // ─── 3層オーロラカーテン（視差で立体感）─────────────────────────────────────
 // ts=時間スケール, yo=Y中心オフセット, ws=帯幅スケール, maxBri=最大輝度, phase=位相
+// hShift: 層ごとの色相オフセット（遠景=青緑、近景=黄緑で前後感を演出）
 const AURORA_LAYERS = [
-  { ts: 0.55, yo: -0.08, ws: 0.75, maxBri: 0.40, phase: 0.0 }, // 遠景: 遅く・高く・暗い
-  { ts: 1.00, yo:  0.00, ws: 1.00, maxBri: 0.72, phase: 2.3 }, // 中景
-  { ts: 1.55, yo:  0.10, ws: 1.20, maxBri: 1.00, phase: 5.1 }, // 近景: 速く・低く・明るい
+  { ts: 0.55, yo: -0.08, ws: 0.75, maxBri: 0.40, phase: 0.0, hShift: +0.10 }, // 遠景: 青緑
+  { ts: 1.00, yo:  0.00, ws: 1.00, maxBri: 0.72, phase: 2.3, hShift:  0.00 }, // 中景: 緑
+  { ts: 1.55, yo:  0.10, ws: 1.20, maxBri: 1.00, phase: 5.1, hShift: -0.08 }, // 近景: 黄緑
 ];
 
 function layerEnv(normDy) {
@@ -63,11 +64,12 @@ function layerEnv(normDy) {
   return Math.exp(-above * 1.1) * Math.exp(-(below ** 2) * 9.0);
 }
 
-// 輝度と高度位置（色相決定用）を1パスで計算
+// 輝度と各層の色を1パスで合成して返す
 function auroraCell(x, y, t) {
   const nx = x / COLS;
   const ny = y / ROWS;
-  let total = 0, wSum = 0, ndSum = 0;
+  let total = 0;
+  let rAcc = 0, gAcc = 0, bAcc = 0, wAcc = 0;
 
   for (const layer of AURORA_LAYERS) {
     const lt     = t * layer.ts + layer.phase;
@@ -80,13 +82,21 @@ function auroraCell(x, y, t) {
     const w      = env * layer.maxBri;
 
     total += w * (0.35 + rays * 0.65) * pulse;
-    wSum  += w;
-    ndSum += nd * w;
+
+    // 層ごとの色相で色を計算し、輝度重み付きで合成
+    const hue = ((auroraHue(nd) + layer.hShift) % 1 + 1) % 1;
+    const [lr, lg, lb] = hslToRgb(hue, 0.70, 0.38);
+    rAcc += lr * w;
+    gAcc += lg * w;
+    bAcc += lb * w;
+    wAcc += w;
   }
 
   return {
-    bri:    Math.min(1, total),
-    normDy: wSum > 0.001 ? ndSum / wSum : 0,
+    bri: Math.min(1, total),
+    r:   wAcc > 0.001 ? Math.round(rAcc / wAcc) : 8,
+    g:   wAcc > 0.001 ? Math.round(gAcc / wAcc) : 10,
+    b:   wAcc > 0.001 ? Math.round(bAcc / wAcc) : 16,
   };
 }
 
@@ -122,15 +132,12 @@ function renderFrame(t) {
 
   for (let row = 0; row < ROWS - 1; row++) {
     for (let col = 0; col < COLS; col++) {
-      const { bri, normDy } = auroraCell(col, row, t);
+      const { bri, r, g, b } = auroraCell(col, row, t);
 
       if (bri < 0.008) {
-        out += '\x1b[38;2;8;10;16m \x1b[0m'; // 暗い夜空
+        out += '\x1b[38;2;8;10;16m \x1b[0m';
         continue;
       }
-
-      const hue = auroraHue(normDy);
-      const [r, g, b] = hslToRgb(hue, 0.70, 0.38);
 
       // 暗い端ほど背景色(8,10,16)に向かってブレンド → 黒に溶け込む
       const fade = Math.min(1, bri * 5);
