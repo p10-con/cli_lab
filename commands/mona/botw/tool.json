@@ -1,0 +1,5 @@
+{
+  "description": "Bloom of the Wisper — 火山、空の島、砂漠、水の都を冒険して、禍々しい影を倒せ！",
+  "run": "node index.js",
+  "install": "npm install"
+}

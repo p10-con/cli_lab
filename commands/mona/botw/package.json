@@ -1,0 +1,13 @@
+{
+  "name": "botw",
+  "version": "1.0.0",
+  "description": "Bloom of the Wisper（開花のささやき）— テキストRPG",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
