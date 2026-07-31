@@ -1,0 +1,5 @@
+{
+  "description": "plant — 実時間で育つ観葉植物ビューア。5種類から選んで、25分で満開まで育てる",
+  "run": "node index.js",
+  "install": "npm install"
+}
