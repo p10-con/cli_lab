@@ -7,178 +7,551 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      background: #ffffff;
-      color: #374151;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+    :root {
+      --bg: #0a0a0f;
+      --surface: rgba(255, 255, 255, 0.03);
+      --surface-hover: rgba(255, 255, 255, 0.06);
+      --border: rgba(200, 200, 230, 0.10);
+      --border-hover: rgba(200, 200, 230, 0.28);
+      --text: #c8c8d8;
+      --text-dim: #7a7a98;
+      --text-faint: #4a4a62;
+      --accent: #b8b8e8;
     }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #sky {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    main, footer { position: relative; z-index: 1; }
 
     main {
-      flex: 1;
       width: 100%;
-      max-width: 640px;
+      max-width: 880px;
       margin: 0 auto;
-      padding: 4rem 1.5rem 2rem;
+      padding: 0 1.25rem 4rem;
     }
 
-    header { margin-bottom: 3rem; }
-
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-      color: #111827;
-    }
-
-    .subtitle {
-      margin-top: 0.25rem;
-      font-size: 0.875rem;
-      color: #9ca3af;
+    /* ---------- hero ---------- */
+    .hero {
+      min-height: 72vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 4rem 0 2rem;
     }
 
     .breadcrumb {
-      margin-top: 0.5rem;
       font-size: 0.8125rem;
-      color: #d1d5db;
+      color: var(--text-faint);
+      letter-spacing: 0.05em;
+      margin-bottom: 2rem;
+      opacity: 0;
+      animation: fadeUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--text); }
+
+    h1 {
+      font-family: 'Georgia', serif;
+      font-size: clamp(4rem, 14vw, 8rem);
+      font-weight: 300;
+      letter-spacing: 0.3em;
+      margin-right: -0.3em; /* letter-spacing の右余白を相殺して中央に */
+      color: transparent;
+      background: linear-gradient(135deg, #c8c8d8 0%, #8888aa 35%, #e8e8f8 60%, #a0a0c0 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      opacity: 0;
+      animation:
+        fadeUp 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s forwards,
+        shimmer 8s ease-in-out 2s infinite;
     }
 
-    .breadcrumb a {
-      color: #9ca3af;
+    .tagline {
+      margin-top: 1rem;
+      font-size: clamp(0.75rem, 2vw, 0.9375rem);
+      letter-spacing: 0.4em;
+      color: var(--text-dim);
+      opacity: 0;
+      animation: fadeUp 1.8s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
+    }
+
+    .stats {
+      margin-top: 2.5rem;
+      display: flex;
+      gap: 2.5rem;
+      opacity: 0;
+      animation: fadeUp 1.8s cubic-bezier(0.16, 1, 0.3, 1) 1.2s forwards;
+    }
+    .stat { text-align: center; }
+    .stat-num {
+      font-family: 'Georgia', serif;
+      font-size: 1.75rem;
+      color: var(--text);
+    }
+    .stat-label {
+      font-size: 0.6875rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+
+    .scroll-hint {
+      margin-top: 3rem;
+      color: var(--text-faint);
+      font-size: 1.25rem;
       text-decoration: none;
+      opacity: 0;
+      animation: fadeUp 1.8s ease 1.8s forwards, bob 2.4s ease-in-out 3s infinite;
     }
 
-    .breadcrumb a:hover { color: #6b7280; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50%      { background-position: 100% 50%; }
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(6px); }
+    }
 
+    /* ---------- sections ---------- */
+    section { margin-top: 4rem; }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
     .section-label {
       font-size: 0.75rem;
       font-weight: 500;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.25em;
       text-transform: uppercase;
-      color: #9ca3af;
-      margin-bottom: 0.75rem;
+      color: var(--text-dim);
     }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-hover), transparent);
+    }
+    .section-note { font-size: 0.75rem; color: var(--text-faint); }
 
-    .card-list {
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 0.75rem;
+    }
+    /* コマンドは全文が読めるよう少し広めに */
+    #cmd-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); }
+
+    .card {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
+      padding: 1.125rem 1.125rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      text-decoration: none;
+      color: var(--text);
+      overflow: hidden;
+      transition: border-color 0.25s, background 0.25s, transform 0.25s;
+      opacity: 0;
+      transform: translateY(14px);
     }
+    .card.visible { opacity: 1; transform: translateY(0); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, background 0.25s; }
 
-    a.card {
+    /* カーソル位置に灯るスポットライト */
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(184, 184, 232, 0.10), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .card:hover::before { opacity: 1; }
+    .card:hover { border-color: var(--border-hover); background: var(--surface-hover); }
+    a.card:hover { transform: translateY(-2px); }
+
+    .card-top {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.875rem 1rem;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      text-decoration: none;
-      color: #374151;
-      background: #ffffff;
-      transition: background 0.15s, border-color 0.15s;
+      gap: 0.625rem;
     }
-
-    a.card:hover {
-      background: #f9fafb;
-      border-color: #d1d5db;
-    }
-
+    .card-icon { font-size: 1.25rem; line-height: 1; }
     .card-name {
       font-size: 0.9375rem;
-      font-weight: 500;
-      color: #111827;
+      font-weight: 600;
+      color: #e4e4f0;
+      letter-spacing: 0.02em;
     }
-
     .card-arrow {
-      color: #d1d5db;
-      font-size: 0.875rem;
+      margin-left: auto;
+      color: var(--text-faint);
+      transition: color 0.2s, transform 0.2s;
+    }
+    a.card:hover .card-arrow { color: var(--accent); transform: translateX(3px); }
+
+    .card-desc {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: var(--text-dim);
     }
 
-    .state-text {
-      font-size: 0.875rem;
-      color: #9ca3af;
-      padding: 0.5rem 0;
+    .tags { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: auto; padding-top: 0.25rem; }
+    .tag {
+      font-size: 0.6875rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
     }
+    .tag.new { border-color: rgba(184, 184, 232, 0.4); color: var(--accent); }
+
+    /* コマンドカードのコピー行 */
+    .cmd {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border);
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      color: var(--text);
+      cursor: pointer;
+      user-select: all;
+      transition: border-color 0.2s;
+    }
+    .cmd:hover { border-color: var(--border-hover); }
+    .cmd .prompt { color: var(--text-faint); user-select: none; }
+    .cmd code { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cmd .copy { color: var(--text-faint); font-family: inherit; font-size: 0.6875rem; user-select: none; }
+    .cmd.copied .copy { color: var(--accent); }
+
+    .state-text { font-size: 0.875rem; color: var(--text-faint); padding: 0.5rem 0; }
 
     footer {
-      padding: 2rem 1.5rem;
+      padding: 3rem 1.25rem;
       text-align: center;
       font-size: 0.8125rem;
-      color: #d1d5db;
+      color: var(--text-faint);
     }
+    footer a { color: var(--text-dim); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .paws { margin-bottom: 0.75rem; letter-spacing: 0.75rem; opacity: 0.5; }
 
-    footer a {
-      color: #9ca3af;
-      text-decoration: none;
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }
-
-    footer a:hover { color: #6b7280; }
   </style>
 </head>
 <body>
+  <canvas id="sky"></canvas>
+
   <main>
-    <header>
-      <h1>gris</h1>
-      <p class="subtitle">🐾 gray &middot; gris &middot; グリ</p>
+    <header class="hero">
       <p class="breadcrumb"><a href="../../">cli_lab</a> / gris</p>
+      <h1>gris</h1>
+      <p class="tagline">🐾&nbsp; gray &middot; gris &middot; グリ &nbsp;🐾</p>
+      <div class="stats">
+        <div class="stat"><div class="stat-num" id="n-pages">–</div><div class="stat-label">pages</div></div>
+        <div class="stat"><div class="stat-num" id="n-cmds">–</div><div class="stat-label">commands</div></div>
+      </div>
+      <a class="scroll-hint" href="#pages" aria-label="scroll">↓</a>
     </header>
 
-    <p class="section-label">Pages</p>
-    <div class="card-list" id="card-list">
-      <p class="state-text" id="status">Loading…</p>
-    </div>
+    <section id="pages">
+      <div class="section-head">
+        <span class="section-label">Pages</span>
+        <span class="section-line"></span>
+      </div>
+      <div class="grid" id="page-grid"></div>
+    </section>
+
+    <section id="commands">
+      <div class="section-head">
+        <span class="section-label">Commands</span>
+        <span class="section-line"></span>
+        <span class="section-note">クリックでコピー</span>
+      </div>
+      <div class="grid" id="cmd-grid"></div>
+    </section>
   </main>
 
   <footer>
-    <a href="https://github.com/p10-con/cli_lab" target="_blank" rel="noopener">github.com/p10-con/cli_lab</a>
+    <div class="paws">🐾🐾🐾</div>
+    <a href="https://github.com/p10-con/cli_lab/tree/main/pages/gris" target="_blank" rel="noopener">github.com/p10-con/cli_lab</a>
   </footer>
 
   <script>
+    // ============================================================
+    //  データ
+    //  ここに書いたものは説明つきで表示される。
+    //  書き忘れたページ/コマンドも GitHub API から拾って補完する。
+    // ============================================================
     const REPO = 'p10-con/cli_lab';
-    const API  = `https://api.github.com/repos/${REPO}/contents/pages/gris`;
 
-    async function load() {
-      const list   = document.getElementById('card-list');
-      const status = document.getElementById('status');
+    const PAGES = [
+      { name: 'introduce', icon: '🌌', desc: '銀色の星屑がゆらめく自己紹介。three.js のパーティクルがマウスに合わせて揺れる。', tags: ['three.js', 'WebGL'] },
+      { name: 'wipe',      icon: '🫧', desc: '曇ったガラスを手で拭うように。Web カメラで手を認識して画面を拭き取る。', tags: ['MediaPipe', 'camera'] },
+      { name: 'ripple',    icon: '💧', desc: '夜の水面に触れると波紋が広がり、やさしい音が鳴る。タップで奏でる小さな楽器。', tags: ['Web Audio', 'canvas'], isNew: true },
+    ];
 
-      try {
-        const res = await fetch(API, { headers: { Accept: 'application/vnd.github+json' } });
+    const COMMANDS = [
+      { name: 'hanabi',         icon: '🎆', desc: 'ターミナルに打ち上げ花火。菊・牡丹・柳・千輪・ハートが夜景の上に咲く。', isNew: true },
+      { name: 'aurora',         icon: '🌠', desc: 'モノクロのオーロラ＋カーソルで色が灯る' },
+      { name: 'donut',          icon: '🍩', desc: '3Dトーラスを透視投影+ASCIIシェーディングで回転させる' },
+      { name: 'dq1',            icon: '⚔️', desc: 'ドラクエ1風テキストRPG — 魔王ゾーマを倒して世界を救え！' },
+      { name: 'rain',           icon: '🌧️', desc: 'マトリックス風の文字の雨をターミナルに降らせる' },
+      { name: 'sand',           icon: '⏳', desc: '落下する砂のセルオートマトンシミュレーション' },
+      { name: 'pendulum',       icon: '🌀', desc: '二重振り子のカオス的な軌跡をリアルタイム描画' },
+      { name: 'newton',         icon: '⚪', desc: 'ニュートンの振り子のターミナルアニメーション' },
+      { name: 'meow',           icon: '🐈', desc: 'ランダムに猫の声を出す。たまに無言' },
+      { name: 'live-watch',     icon: '👁️', desc: 'ディレクトリをリアルタイム監視してファイル変更を表示' },
+      { name: 'parallel-fetch', icon: '⚡', desc: '複数URLを並列リクエストしてステータスと速度を表示' },
+    ];
 
-        if (res.status === 403) {
-          status.textContent = 'GitHub API rate limit exceeded. Try again later.';
-          return;
-        }
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // API 補完でも出さないもの（tool.json が無く lab.py から起動できない）
+    const HIDDEN_COMMANDS = ['adventure'];
 
-        const entries = await res.json();
-        const dirs = entries.filter(e => e.type === 'dir');
+    // ============================================================
+    //  描画
+    // ============================================================
+    const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-        if (dirs.length === 0) {
-          status.textContent = 'No pages yet.';
-          return;
-        }
-
-        status.remove();
-
-        for (const dir of dirs) {
-          const a = document.createElement('a');
-          a.className = 'card';
-          a.href = `${dir.name}/`;
-          a.innerHTML = `
-            <span class="card-name">${dir.name}</span>
-            <span class="card-arrow">→</span>
-          `;
-          list.appendChild(a);
-        }
-      } catch (err) {
-        status.textContent = 'Failed to load pages.';
-        console.error(err);
+    const observer = new IntersectionObserver(entries => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add('visible');
+        observer.unobserve(e.target);
       }
+    }, { threshold: 0.1 });
+
+    function attachSpotlight(el) {
+      el.addEventListener('pointermove', e => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        el.style.setProperty('--my', `${e.clientY - r.top}px`);
+      });
     }
 
-    load();
+    function stagger(el, i) {
+      el.style.transitionDelay = `${Math.min(i, 10) * 60}ms`;
+      observer.observe(el);
+      attachSpotlight(el);
+      // 表示後はホバー反応を遅らせないように delay を外す
+      el.addEventListener('transitionend', () => { el.style.transitionDelay = ''; }, { once: true });
+    }
+
+    function tagsHtml(item) {
+      const tags = (item.tags || []).map(t => `<span class="tag">${esc(t)}</span>`);
+      if (item.isNew) tags.unshift('<span class="tag new">new</span>');
+      return tags.length ? `<div class="tags">${tags.join('')}</div>` : '';
+    }
+
+    function renderPage(item, i) {
+      const a = document.createElement('a');
+      a.className = 'card';
+      a.href = `${encodeURIComponent(item.name)}/`;
+      a.innerHTML = `
+        <div class="card-top">
+          <span class="card-icon">${item.icon || '📄'}</span>
+          <span class="card-name">${esc(item.name)}</span>
+          <span class="card-arrow">→</span>
+        </div>
+        ${item.desc ? `<p class="card-desc">${esc(item.desc)}</p>` : ''}
+        ${tagsHtml(item)}
+      `;
+      document.getElementById('page-grid').appendChild(a);
+      stagger(a, i);
+    }
+
+    function renderCommand(item, i) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      const command = `python lab.py gris ${item.name}`;
+      div.innerHTML = `
+        <div class="card-top">
+          <span class="card-icon">${item.icon || '⌨️'}</span>
+          <span class="card-name">${esc(item.name)}</span>
+          ${item.isNew ? '<span class="tag new" style="margin-left:auto">new</span>' : ''}
+        </div>
+        ${item.desc ? `<p class="card-desc">${esc(item.desc)}</p>` : ''}
+        <div class="cmd" role="button" tabindex="0" title="コピー">
+          <span class="prompt">$</span><code>${esc(command)}</code><span class="copy">copy</span>
+        </div>
+      `;
+      const cmd = div.querySelector('.cmd');
+      const copy = async () => {
+        try {
+          await navigator.clipboard.writeText(command);
+          cmd.classList.add('copied');
+          cmd.querySelector('.copy').textContent = 'copied!';
+          setTimeout(() => {
+            cmd.classList.remove('copied');
+            cmd.querySelector('.copy').textContent = 'copy';
+          }, 1400);
+        } catch { /* clipboard 不可の環境では user-select:all で手動コピー */ }
+      };
+      cmd.addEventListener('click', copy);
+      cmd.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy(); } });
+      document.getElementById('cmd-grid').appendChild(div);
+      stagger(div, i);
+    }
+
+    function updateCounts() {
+      document.getElementById('n-pages').textContent = document.getElementById('page-grid').children.length;
+      document.getElementById('n-cmds').textContent  = document.getElementById('cmd-grid').children.length;
+    }
+
+    PAGES.forEach(renderPage);
+    COMMANDS.forEach(renderCommand);
+    updateCounts();
+
+    // 一覧に書き忘れたディレクトリを GitHub API から補完（失敗しても静的リストはそのまま）
+    async function listDirs(path) {
+      const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+      if (!res.ok) return [];
+      return (await res.json()).filter(e => e.type === 'dir').map(e => e.name);
+    }
+
+    (async () => {
+      try {
+        const [pages, cmds] = await Promise.all([listDirs('pages/gris'), listDirs('commands/gris')]);
+        const knownP = new Set(PAGES.map(p => p.name));
+        const knownC = new Set([...COMMANDS.map(c => c.name), ...HIDDEN_COMMANDS]);
+        pages.filter(n => !knownP.has(n)).forEach((name, i) => renderPage({ name }, i));
+        cmds.filter(n => !knownC.has(n)).forEach((name, i) => renderCommand({ name }, i));
+        updateCounts();
+      } catch (err) {
+        console.warn('GitHub API から一覧を取得できませんでした', err);
+      }
+    })();
+
+    // ============================================================
+    //  背景：漂う星屑（Canvas 2D）
+    // ============================================================
+    const sky = document.getElementById('sky');
+    const ctx = sky.getContext('2d');
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const PALETTE = ['#b0b0cc', '#8888bb', '#d8d8ee', '#606080', '#e8e4ff'];
+
+    let W, H, DPR, stars = [];
+    const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+    function resize() {
+      DPR = Math.min(devicePixelRatio || 1, 2);
+      W = innerWidth; H = innerHeight;
+      sky.width = W * DPR; sky.height = H * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      const count = Math.round((W * H) / 3200);
+      stars = Array.from({ length: count }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        z: 0.2 + Math.random() * 0.8,          // 奥行き（視差・大きさ・速さ）
+        r: 0.3 + Math.random() * 1.1,
+        c: PALETTE[(Math.random() * PALETTE.length) | 0],
+        p: Math.random() * Math.PI * 2,         // 瞬きの位相
+        s: 0.5 + Math.random() * 1.5,           // 瞬きの速さ
+      }));
+    }
+
+    addEventListener('resize', resize);
+    addEventListener('pointermove', e => {
+      mouse.tx = (e.clientX / W - 0.5) * 2;
+      mouse.ty = (e.clientY / H - 0.5) * 2;
+    });
+
+    let shooting = null;
+    function maybeShoot() {
+      if (shooting || Math.random() > 0.004) return;
+      shooting = { x: Math.random() * W * 0.8, y: Math.random() * H * 0.4, vx: 6 + Math.random() * 4, vy: 2 + Math.random() * 2, life: 1 };
+    }
+
+    function frame(t) {
+      t /= 1000;
+      mouse.x += (mouse.tx - mouse.x) * 0.04;
+      mouse.y += (mouse.ty - mouse.y) * 0.04;
+      const scroll = scrollY;
+
+      ctx.clearRect(0, 0, W, H);
+
+      for (const s of stars) {
+        if (!reduceMotion) {
+          s.y -= 0.06 * s.z;                  // ゆっくり上昇
+          if (s.y < -5) { s.y = H + 5; s.x = Math.random() * W; }
+        }
+        const px = s.x - mouse.x * 18 * s.z;
+        let py = (s.y - mouse.y * 12 * s.z - scroll * 0.15 * s.z) % H;
+        if (py < 0) py += H;
+        const tw = reduceMotion ? 0.8 : 0.55 + 0.45 * Math.sin(t * s.s + s.p);
+        ctx.globalAlpha = tw * (0.35 + 0.65 * s.z);
+        ctx.fillStyle = s.c;
+        ctx.beginPath();
+        ctx.arc(px, py, s.r * s.z * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (!reduceMotion) {
+        maybeShoot();
+        if (shooting) {
+          const g = ctx.createLinearGradient(shooting.x, shooting.y, shooting.x - shooting.vx * 14, shooting.y - shooting.vy * 14);
+          g.addColorStop(0, `rgba(232, 228, 255, ${shooting.life})`);
+          g.addColorStop(1, 'rgba(232, 228, 255, 0)');
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = g;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(shooting.x, shooting.y);
+          ctx.lineTo(shooting.x - shooting.vx * 14, shooting.y - shooting.vy * 14);
+          ctx.stroke();
+          shooting.x += shooting.vx;
+          shooting.y += shooting.vy;
+          shooting.life -= 0.012;
+          if (shooting.life <= 0 || shooting.x > W + 100) shooting = null;
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+
+    resize();
+    requestAnimationFrame(frame);
   </script>
 </body>
 </html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>gris · ripple</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #05060c; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+      color: #c8c8d8;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+    /* ---------- 開始オーバーレイ ---------- */
+    #intro {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      background: radial-gradient(ellipse at center, rgba(10, 12, 30, 0.6), rgba(3, 4, 10, 0.92));
+      cursor: pointer;
+      z-index: 20;
+      transition: opacity 1.2s ease;
+      text-align: center;
+      padding: 1.5rem;
+    }
+    #intro.hidden { opacity: 0; pointer-events: none; }
+    #intro h1 {
+      font-family: 'Georgia', serif;
+      font-weight: 300;
+      font-size: clamp(3rem, 10vw, 6rem);
+      letter-spacing: 0.35em;
+      margin-right: -0.35em;
+      color: transparent;
+      background: linear-gradient(135deg, #c8c8d8 0%, #8888aa 40%, #e0e0f0 70%, #a0a0c0 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+    #intro p { font-size: 0.875rem; letter-spacing: 0.2em; color: #7a7a98; }
+    #intro .pulse {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.3em;
+      color: #b8b8e8;
+      animation: pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+    /* ---------- UI ---------- */
+    .ui {
+      position: fixed;
+      z-index: 10;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    #top-left { top: 14px; left: 14px; }
+    #bottom { bottom: 14px; left: 50%; transform: translateX(-50%); justify-content: center; width: calc(100% - 28px); }
+
+    .ui a, .ui button {
+      font: inherit;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      color: #9a9ab8;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(200, 200, 230, 0.12);
+      border-radius: 999px;
+      padding: 0.375rem 0.875rem;
+      text-decoration: none;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: color 0.2s, border-color 0.2s, background 0.2s;
+    }
+    .ui a:hover, .ui button:hover { color: #e4e4f0; border-color: rgba(200, 200, 230, 0.3); }
+    .ui button.on { color: #e8e4ff; border-color: rgba(184, 184, 232, 0.55); background: rgba(184, 184, 232, 0.12); }
+
+    #scale-name {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 10;
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      color: #5a5a78;
+      text-align: right;
+      pointer-events: none;
+    }
+    #scale-name b { display: block; font-weight: 400; font-size: 1rem; color: #9a9ab8; letter-spacing: 0.3em; }
+
+    #hint {
+      position: fixed;
+      left: 50%;
+      bottom: 64px;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: #4a4a62;
+      pointer-events: none;
+      transition: opacity 1.5s ease;
+      white-space: nowrap;
+    }
+    @media (max-width: 520px) { #hint { display: none; } }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="intro">
+    <h1>ripple</h1>
+    <p>夜の水面に、そっと触れてみて</p>
+    <div class="pulse">TAP TO BEGIN 🐾</div>
+  </div>
+
+  <div class="ui" id="top-left">
+    <a href="../">← gris</a>
+  </div>
+
+  <div id="scale-name"><b id="scale-jp">陽音階</b><span id="scale-en">YO</span></div>
+
+  <div id="hint">クリック / ドラッグで奏でる · キー A〜L でも鳴らせる · 左右で音の高さ、上下で音色</div>
+
+  <div class="ui" id="bottom">
+    <button id="btn-scale" title="音階を切り替え (Shift+S)">♪ 音階</button>
+    <button id="btn-rain"  title="自動演奏 (R)">☂ 雨</button>
+    <button id="btn-mute"  title="ミュート (M)">🔊</button>
+  </div>
+
+  <script>
+    // ============================================================
+    //  音階
+    // ============================================================
+    const SCALES = [
+      { jp: '陽音階',     en: 'YO',               steps: [0, 2, 5, 7, 9],  hue: 220 },
+      { jp: '陰音階',     en: 'IN / MIYAKO-BUSHI', steps: [0, 1, 5, 7, 8],  hue: 265 },
+      { jp: '琉球音階',   en: 'RYUKYU',           steps: [0, 4, 5, 7, 11], hue: 185 },
+      { jp: 'ペンタトニック', en: 'MAJOR PENTATONIC', steps: [0, 2, 4, 7, 9],  hue: 240 },
+    ];
+    const ROOT_MIDI = 57;   // A3
+    const OCTAVES   = 3;
+    const SLOTS     = 5 * OCTAVES + 1;   // 最後にもう一度ルート音
+
+    let scaleIdx = 0;
+    const scale = () => SCALES[scaleIdx];
+
+    function slotToMidi(slot) {
+      const s = scale().steps;
+      const oct = Math.floor(slot / s.length);
+      return ROOT_MIDI + oct * 12 + s[slot % s.length];
+    }
+    const midiToHz = m => 440 * Math.pow(2, (m - 69) / 12);
+
+    // ============================================================
+    //  オーディオ
+    // ============================================================
+    let ac = null, master = null, dry = null, wet = null;
+    let muted = false;
+
+    function makeImpulse(ctx, seconds, decay) {
+      const rate = ctx.sampleRate;
+      const len = Math.floor(rate * seconds);
+      const buf = ctx.createBuffer(2, len, rate);
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < len; i++) {
+          d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        }
+      }
+      return buf;
+    }
+
+    function initAudio() {
+      if (ac) return;
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+
+      const comp = ac.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.ratio.value = 4;
+      comp.connect(ac.destination);
+
+      master = ac.createGain();
+      master.gain.value = 0.8;
+      master.connect(comp);
+
+      // 残響：生成したインパルス応答でリバーブ
+      const reverb = ac.createConvolver();
+      reverb.buffer = makeImpulse(ac, 4.5, 2.6);
+      wet = ac.createGain();
+      wet.gain.value = 0.55;
+      reverb.connect(wet).connect(master);
+
+      // 水面のこだま：フィードバックつきディレイ
+      const delay = ac.createDelay(2);
+      delay.delayTime.value = 0.42;
+      const fb = ac.createGain();
+      fb.gain.value = 0.32;
+      const lp = ac.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2200;
+      delay.connect(lp).connect(fb).connect(delay);
+      lp.connect(reverb);
+      lp.connect(master);
+
+      dry = ac.createGain();
+      dry.gain.value = 0.7;
+      dry.connect(master);
+      dry.connect(reverb);
+      dry.connect(delay);
+    }
+
+    // brightness: 0（やわらかい） … 1（鈴のよう）
+    function playNote(midi, brightness = 0.5, velocity = 0.8, pan = 0) {
+      if (!ac || muted) return;
+      const t = ac.currentTime;
+      const f = midiToHz(midi);
+
+      const out = ac.createGain();
+      const panner = ac.createStereoPanner ? ac.createStereoPanner() : null;
+      if (panner) { panner.pan.value = pan; out.connect(panner).connect(dry); }
+      else out.connect(dry);
+
+      const peak = 0.22 * velocity;
+      const length = 2.2 + (1 - brightness) * 1.8;
+      out.gain.setValueAtTime(0.0001, t);
+      out.gain.exponentialRampToValueAtTime(peak, t + 0.008);
+      out.gain.exponentialRampToValueAtTime(0.0001, t + length);
+
+      // 基音 + 倍音（brightness が高いほど金属的な非整数倍音が増える）
+      const partials = [
+        { ratio: 1,    gain: 1,                    type: 'sine' },
+        { ratio: 2,    gain: 0.25 + brightness * 0.15, type: 'sine' },
+        { ratio: 3.01, gain: brightness * 0.18,    type: 'sine' },
+        { ratio: 4.2,  gain: brightness * 0.12,    type: 'sine' },
+        { ratio: 0.5,  gain: (1 - brightness) * 0.25, type: 'triangle' },
+      ];
+
+      for (const p of partials) {
+        if (p.gain <= 0.001) continue;
+        const osc = ac.createOscillator();
+        osc.type = p.type;
+        osc.frequency.value = f * p.ratio;
+        osc.detune.value = (Math.random() - 0.5) * 6;
+        const g = ac.createGain();
+        // 高い倍音ほど早く減衰
+        const decay = length / Math.max(1, p.ratio * 0.9);
+        g.gain.setValueAtTime(p.gain, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+        osc.connect(g).connect(out);
+        osc.start(t);
+        osc.stop(t + length + 0.05);
+      }
+    }
+
+    // ============================================================
+    //  描画
+    // ============================================================
+    const cvs = document.getElementById('c');
+    const ctx = cvs.getContext('2d');
+    let W, H, DPR;
+
+    function resize() {
+      DPR = Math.min(devicePixelRatio || 1, 2);
+      W = innerWidth; H = innerHeight;
+      cvs.width = W * DPR; cvs.height = H * DPR;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      buildMotes();
+    }
+    addEventListener('resize', resize);
+
+    // 水面に漂う光の粒
+    let motes = [];
+    function buildMotes() {
+      const n = Math.round((W * H) / 9000);
+      motes = Array.from({ length: n }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.15,
+        ox: 0, oy: 0,   // 波紋で押し出されるオフセット
+        r: 0.4 + Math.random() * 1.2,
+        p: Math.random() * Math.PI * 2,
+      }));
+    }
+
+    const ripples = [];
+    const MAX_RIPPLES = 60;
+
+    function addRipple(x, y, slot, brightness, velocity) {
+      const hue = scale().hue + (slot / SLOTS) * 70 - 20;
+      ripples.push({
+        x, y, hue,
+        t: 0,
+        speed: 1.1 + (1 - slot / SLOTS) * 0.9,     // 低い音ほど速く大きく広がる
+        life: 1,
+        rings: 3 + Math.round(brightness * 2),
+        strength: velocity,
+      });
+      if (ripples.length > MAX_RIPPLES) ripples.shift();
+    }
+
+    // 弦の位置ガイド（ごく薄い縦線）
+    function drawGuides() {
+      ctx.lineWidth = 1;
+      for (let i = 0; i < SLOTS; i++) {
+        const x = ((i + 0.5) / SLOTS) * W;
+        const isRoot = i % 5 === 0;
+        ctx.strokeStyle = isRoot ? 'rgba(184,184,232,0.05)' : 'rgba(184,184,232,0.022)';
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+    }
+
+    function drawMoon(time) {
+      // 水面に映る月：ゆらぐ横縞
+      const cx = W * 0.78, cy = H * 0.24, r = Math.min(W, H) * 0.06;
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 5);
+      g.addColorStop(0, 'rgba(220,220,255,0.08)');
+      g.addColorStop(1, 'rgba(220,220,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - r * 5, cy - r * 5, r * 10, r * 10);
+      for (let i = -6; i <= 6; i++) {
+        const y = cy + i * r * 0.32;
+        const w = Math.sqrt(Math.max(0, 1 - (i / 6.5) ** 2)) * r * (1 + 0.15 * Math.sin(time * 1.3 + i));
+        const off = Math.sin(time * 0.9 + i * 0.8) * r * 0.25;
+        ctx.fillStyle = `rgba(230,228,255,${0.22 - Math.abs(i) * 0.025})`;
+        ctx.fillRect(cx - w + off, y, w * 2, r * 0.14);
+      }
+    }
+
+    let last = performance.now();
+    function frame(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const time = now / 1000;
+
+      // 背景：深い夜の水
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, '#070814');
+      bg.addColorStop(1, '#02030a');
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      drawGuides();
+      drawMoon(time);
+
+      // 波紋
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const rp = ripples[i];
+        rp.t += dt;
+        rp.life = Math.max(0, 1 - rp.t / 4.5);
+        if (rp.life <= 0) { ripples.splice(i, 1); continue; }
+
+        for (let k = 0; k < rp.rings; k++) {
+          const radius = (rp.t * 90 * rp.speed) - k * 16;
+          if (radius <= 0) continue;
+          const a = rp.life * rp.life * (1 - k / rp.rings) * 0.55 * rp.strength;
+          ctx.strokeStyle = `hsla(${rp.hue}, 60%, 78%, ${a})`;
+          ctx.lineWidth = 1.6 - k * 0.25;
+          ctx.beginPath();
+          // 水面を斜めから見ているので少し潰した楕円に
+          ctx.ellipse(rp.x, rp.y, radius, radius * 0.42, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 触れた瞬間の光
+        if (rp.t < 0.6) {
+          const a = (1 - rp.t / 0.6) * 0.5 * rp.strength;
+          const g = ctx.createRadialGradient(rp.x, rp.y, 0, rp.x, rp.y, 40);
+          g.addColorStop(0, `hsla(${rp.hue}, 70%, 85%, ${a})`);
+          g.addColorStop(1, `hsla(${rp.hue}, 70%, 85%, 0)`);
+          ctx.fillStyle = g;
+          ctx.fillRect(rp.x - 40, rp.y - 40, 80, 80);
+        }
+      }
+
+      // 光の粒（波紋の輪に押されて揺れる）
+      for (const m of motes) {
+        m.x += m.vx; m.y += m.vy;
+        if (m.x < 0) m.x += W; if (m.x > W) m.x -= W;
+        if (m.y < 0) m.y += H; if (m.y > H) m.y -= H;
+
+        for (const rp of ripples) {
+          const radius = rp.t * 90 * rp.speed;
+          const dx = m.x - rp.x, dy = (m.y - rp.y) / 0.42;
+          const d = Math.hypot(dx, dy);
+          const band = Math.abs(d - radius);
+          if (band < 20 && d > 0) {
+            const push = (1 - band / 20) * rp.life * 0.6;
+            m.ox += (dx / d) * push;
+            m.oy += (dy / d) * push * 0.42;
+          }
+        }
+        m.ox *= 0.92; m.oy *= 0.92;
+
+        const tw = 0.4 + 0.6 * Math.sin(time * 1.2 + m.p) ** 2;
+        ctx.fillStyle = `rgba(200,200,240,${0.25 * tw})`;
+        ctx.beginPath();
+        ctx.arc(m.x + m.ox, m.y + m.oy, m.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+
+      requestAnimationFrame(frame);
+    }
+
+    // ============================================================
+    //  入力
+    // ============================================================
+    function touch(x, y, velocity = 0.85) {
+      const slot = Math.max(0, Math.min(SLOTS - 1, Math.floor((x / W) * SLOTS)));
+      const brightness = 1 - y / H;            // 上ほど鈴のように明るい
+      const pan = (x / W) * 1.4 - 0.7;
+      playNote(slotToMidi(slot), brightness, velocity, pan);
+      addRipple(x, y, slot, brightness, velocity);
+      hideHint();
+    }
+
+    let dragging = false, lastSlot = -1, lastDrop = 0;
+    cvs.addEventListener('pointerdown', e => {
+      dragging = true;
+      cvs.setPointerCapture(e.pointerId);
+      lastSlot = Math.floor((e.clientX / W) * SLOTS);
+      lastDrop = performance.now();
+      touch(e.clientX, e.clientY);
+    });
+    cvs.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      // ドラッグ中は別の音域に入った時だけ鳴らす（グリッサンド）
+      const slot = Math.floor((e.clientX / W) * SLOTS);
+      const now = performance.now();
+      if (slot !== lastSlot && now - lastDrop > 70) {
+        lastSlot = slot;
+        lastDrop = now;
+        touch(e.clientX, e.clientY, 0.6);
+      }
+    });
+    const end = () => { dragging = false; };
+    cvs.addEventListener('pointerup', end);
+    cvs.addEventListener('pointercancel', end);
+
+    // キーボード：A S D F G H J K L ; で左から順に
+    const KEYS = 'asdfghjkl;';
+    addEventListener('keydown', e => {
+      if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'r') return toggleRain();
+      if (k === 's' && e.shiftKey) return nextScale();
+      if (k === 'm') return toggleMute();
+      const i = KEYS.indexOf(k);
+      if (i < 0 || !ac) return;
+      const slot = Math.round((i / (KEYS.length - 1)) * (SLOTS - 1));
+      const x = ((slot + 0.5) / SLOTS) * W;
+      const y = H * (0.35 + Math.random() * 0.4);
+      touch(x, y);
+    });
+
+    // ============================================================
+    //  雨（自動演奏）：前の音から近い音へ歩くように
+    // ============================================================
+    let raining = false, rainTimer = null, rainSlot = 5;
+    function rainStep() {
+      if (!raining) return;
+      const r = Math.random();
+      const step = r < 0.35 ? 1 : r < 0.7 ? -1 : r < 0.82 ? 2 : r < 0.94 ? -2 : (Math.random() < 0.5 ? 5 : -5);
+      rainSlot = Math.max(0, Math.min(SLOTS - 1, rainSlot + step));
+      const x = ((rainSlot + 0.2 + Math.random() * 0.6) / SLOTS) * W;
+      const y = H * (0.15 + Math.random() * 0.75);
+      touch(x, y, 0.45 + Math.random() * 0.4);
+      // たまに和音（5度上）
+      if (Math.random() < 0.15) {
+        const s2 = Math.min(SLOTS - 1, rainSlot + 3);
+        setTimeout(() => raining && touch(((s2 + 0.5) / SLOTS) * W, H * (0.2 + Math.random() * 0.6), 0.35), 90);
+      }
+      const intervals = [280, 420, 420, 560, 840, 1120];
+      rainTimer = setTimeout(rainStep, intervals[(Math.random() * intervals.length) | 0]);
+    }
+
+    // ============================================================
+    //  ボタン
+    // ============================================================
+    const btnRain = document.getElementById('btn-rain');
+    const btnMute = document.getElementById('btn-mute');
+
+    function toggleRain() {
+      raining = !raining;
+      btnRain.classList.toggle('on', raining);
+      clearTimeout(rainTimer);
+      if (raining) rainStep();
+    }
+    function toggleMute() {
+      muted = !muted;
+      btnMute.textContent = muted ? '🔇' : '🔊';
+      btnMute.classList.toggle('on', muted);
+      if (master) master.gain.setTargetAtTime(muted ? 0 : 0.8, ac.currentTime, 0.05);
+    }
+    function nextScale() {
+      scaleIdx = (scaleIdx + 1) % SCALES.length;
+      document.getElementById('scale-jp').textContent = scale().jp;
+      document.getElementById('scale-en').textContent = scale().en;
+      // 切り替えを知らせる小さなアルペジオ
+      [0, 1, 2, 3, 4, 5].forEach((s, i) => setTimeout(() => touch(((s * 2 + 3.5) / SLOTS) * W, H * 0.5, 0.4), i * 90));
+    }
+
+    btnRain.addEventListener('click', toggleRain);
+    btnMute.addEventListener('click', toggleMute);
+    document.getElementById('btn-scale').addEventListener('click', nextScale);
+
+    let hintHidden = false, touches = 0;
+    function hideHint() {
+      if (hintHidden || ++touches < 6) return;
+      hintHidden = true;
+      document.getElementById('hint').style.opacity = 0;
+    }
+
+    // ============================================================
+    //  開始（ブラウザの自動再生制限のため、最初のタップで音声を有効化）
+    // ============================================================
+    const intro = document.getElementById('intro');
+    intro.addEventListener('pointerdown', e => {
+      initAudio();
+      if (ac.state === 'suspended') ac.resume();
+      intro.classList.add('hidden');
+      // 最初のひとしずく
+      setTimeout(() => touch(e.clientX, e.clientY), 120);
+    }, { once: true });
+
+    resize();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
